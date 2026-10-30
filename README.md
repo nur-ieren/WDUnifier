@@ -70,7 +70,8 @@ This project was created to make Write Defaults configuration more efficient and
 
 ## Author
 
-vor_ges
+- nur_ieren
+- vor_ges
 
 ## Licence
 
