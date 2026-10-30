@@ -17,6 +17,7 @@
 //
 // 使い方:
 //   Unityメニュー > nur_ieren > WDUnifier
+//   ウィンドウ上部の「日本語 / English」で表示言語を切り替えられます（選択は EditorPrefs に保存されます）。
 //
 #if UNITY_EDITOR
 using System.Collections.Generic;
@@ -49,22 +50,65 @@ namespace nur_ieren
         private bool writeDefaultsValue = true; // true = ON (1) / false = OFF (0)
         private bool verboseLog = true;
 
+        // --- 表示言語 / Display language ---
+        private const string LangPrefKey = "nur_ieren.WDUnifier.English";
+        private bool isEnglish;
+
         private Vector2 scroll;
         private readonly StringBuilder logBuilder = new StringBuilder();
 
         [MenuItem("nur_ieren/WDUnifier")]
         private static void ShowWindow()
         {
-            var window = GetWindow<WDUnifier>("Write Defaults 一括切り替え");
+            var window = GetWindow<WDUnifier>();
+            window.UpdateWindowTitle();
             window.minSize = new Vector2(460, 480);
+        }
+
+        private void OnEnable()
+        {
+            isEnglish = EditorPrefs.GetBool(LangPrefKey, false);
+            UpdateWindowTitle();
+        }
+
+        // 表示言語に応じた文字列を返す / Returns the string for the current display language
+        private string T(string ja, string en)
+        {
+            return isEnglish ? en : ja;
+        }
+
+        private void UpdateWindowTitle()
+        {
+            titleContent = new GUIContent(T("Write Defaults 一括切り替え", "Write Defaults Batch Switcher"));
+        }
+
+        // ウィンドウ上部の言語切り替え (日本語 / English)
+        private void DrawLanguageToggle()
+        {
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            int selected = GUILayout.Toolbar(isEnglish ? 1 : 0, new[] { "日本語", "English" }, GUILayout.Width(160));
+            EditorGUILayout.EndHorizontal();
+
+            bool newIsEnglish = selected == 1;
+            if (newIsEnglish != isEnglish)
+            {
+                isEnglish = newIsEnglish;
+                EditorPrefs.SetBool(LangPrefKey, isEnglish);
+                UpdateWindowTitle();
+            }
+
+            EditorGUILayout.Space();
         }
 
         private void OnGUI()
         {
-            EditorGUILayout.LabelField("対象の指定方法", EditorStyles.boldLabel);
+            DrawLanguageToggle();
+
+            EditorGUILayout.LabelField(T("対象の指定方法", "Target Selection Mode"), EditorStyles.boldLabel);
             targetMode = (TargetMode)GUILayout.Toolbar(
                 (int)targetMode,
-                new[] { "ファイル指定", "GameObject指定" });
+                new[] { T("ファイル指定", "File"), T("GameObject指定", "GameObject") });
 
             EditorGUILayout.Space();
 
@@ -78,11 +122,11 @@ namespace nur_ieren
             }
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Write Defaults の設定値", EditorStyles.boldLabel);
-            writeDefaultsValue = GUILayout.Toolbar(writeDefaultsValue ? 1 : 0, new[] { "OFF にする (0 / false)", "ON にする (1 / true)" }) == 1;
+            EditorGUILayout.LabelField(T("Write Defaults の設定値", "Write Defaults Value"), EditorStyles.boldLabel);
+            writeDefaultsValue = GUILayout.Toolbar(writeDefaultsValue ? 1 : 0, new[] { T("OFF にする (0 / false)", "Set OFF (0 / false)"), T("ON にする (1 / true)", "Set ON (1 / true)") }) == 1;
 
             verboseLog = EditorGUILayout.Toggle(
-                new GUIContent("詳細ログを出力する", "対象ステートが多い場合はOFFにすると高速化します"),
+                new GUIContent(T("詳細ログを出力する", "Verbose log"), T("対象ステートが多い場合はOFFにすると高速化します", "Turn OFF to speed up when there are many states")),
                 verboseLog);
 
             EditorGUILayout.Space();
@@ -93,21 +137,23 @@ namespace nur_ieren
 
             using (new EditorGUI.DisabledScope(!hasTarget))
             {
-                if (GUILayout.Button("プレビュー（対象と変更件数を確認）", GUILayout.Height(28)))
+                if (GUILayout.Button(T("プレビュー（対象と変更件数を確認）", "Preview (check targets and change count)"), GUILayout.Height(28)))
                 {
                     Preview();
                 }
 
                 var prevColor = GUI.backgroundColor;
                 GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-                if (GUILayout.Button("一括切り替えを実行", GUILayout.Height(32)))
+                if (GUILayout.Button(T("一括切り替えを実行", "Run Batch Switch"), GUILayout.Height(32)))
                 {
+                    string wdLabel = writeDefaultsValue ? "ON (true)" : "OFF (false)";
                     if (EditorUtility.DisplayDialog(
-                        "確認",
-                        $"対象の Animator Controller 内の全ステートの Write Defaults を " +
-                        $"{(writeDefaultsValue ? "ON (true)" : "OFF (false)")} に揃えます。\n" +
-                        "Ctrl+Z (Undo) で戻せますが、念のためプロジェクトのバックアップを推奨します。\n\n実行しますか？",
-                        "実行する", "キャンセル"))
+                        T("確認", "Confirm"),
+                        T($"対象の Animator Controller 内の全ステートの Write Defaults を {wdLabel} に揃えます。\n" +
+                          "Ctrl+Z (Undo) で戻せますが、念のためプロジェクトのバックアップを推奨します。\n\n実行しますか？",
+                          $"This will set Write Defaults of all states in the target Animator Controllers to {wdLabel}.\n" +
+                          "You can undo with Ctrl+Z, but backing up your project first is recommended.\n\nProceed?"),
+                        T("実行する", "Run"), T("キャンセル", "Cancel")))
                     {
                         Execute();
                     }
@@ -117,11 +163,11 @@ namespace nur_ieren
 
             if (!hasTarget)
             {
-                EditorGUILayout.HelpBox("対象（ファイル または GameObject）を1つ以上指定してください。", MessageType.Info);
+                EditorGUILayout.HelpBox(T("対象（ファイル または GameObject）を1つ以上指定してください。", "Specify at least one target (file or GameObject)."), MessageType.Info);
             }
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("ログ", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(T("ログ", "Log"), EditorStyles.boldLabel);
             scroll = EditorGUILayout.BeginScrollView(scroll, GUILayout.Height(180));
             EditorGUILayout.TextArea(logBuilder.ToString(), GUILayout.ExpandHeight(true));
             EditorGUILayout.EndScrollView();
@@ -132,17 +178,17 @@ namespace nur_ieren
         // ============================================================
         private void DrawFileModeGUI()
         {
-            EditorGUILayout.LabelField("対象の Animator Controller", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(T("対象の Animator Controller", "Target Animator Controllers"), EditorStyles.boldLabel);
 
             Rect dropArea = GUILayoutUtility.GetRect(0, 46, GUILayout.ExpandWidth(true));
-            GUI.Box(dropArea, "ここに Animator Controller をドラッグ＆ドロップ\n(複数選択してまとめてドロップ可)", EditorStyles.helpBox);
+            GUI.Box(dropArea, T("ここに Animator Controller をドラッグ＆ドロップ\n(複数選択してまとめてドロップ可)", "Drag & drop Animator Controllers here\n(multiple selection supported)"), EditorStyles.helpBox);
             HandleDragAndDrop(dropArea);
 
             EditorGUILayout.BeginHorizontal();
             fileToAdd = (AnimatorController)EditorGUILayout.ObjectField(fileToAdd, typeof(AnimatorController), false);
             using (new EditorGUI.DisabledScope(fileToAdd == null))
             {
-                if (GUILayout.Button("追加", GUILayout.Width(50)))
+                if (GUILayout.Button(T("追加", "Add"), GUILayout.Width(50)))
                 {
                     AddControllerToList(fileToAdd);
                     fileToAdd = null;
@@ -152,7 +198,7 @@ namespace nur_ieren
 
             if (targetControllers.Count > 0)
             {
-                EditorGUILayout.LabelField($"登録済み: {targetControllers.Count} 件");
+                EditorGUILayout.LabelField(T($"登録済み: {targetControllers.Count} 件", $"Registered: {targetControllers.Count}"));
                 for (int i = targetControllers.Count - 1; i >= 0; i--)
                 {
                     EditorGUILayout.BeginHorizontal();
@@ -163,7 +209,7 @@ namespace nur_ieren
                     }
                     EditorGUILayout.EndHorizontal();
                 }
-                if (GUILayout.Button("リストを全てクリア"))
+                if (GUILayout.Button(T("リストを全てクリア", "Clear all")))
                 {
                     targetControllers.Clear();
                 }
@@ -211,17 +257,20 @@ namespace nur_ieren
         private void DrawGameObjectModeGUI()
         {
             targetGameObject = (GameObject)EditorGUILayout.ObjectField(
-                new GUIContent("対象GameObject", "このオブジェクト配下で使われている Animator Controller が対象になります"),
+                new GUIContent(T("対象GameObject", "Target GameObject"), T("このオブジェクト配下で使われている Animator Controller が対象になります", "Animator Controllers used under this object are processed")),
                 targetGameObject, typeof(GameObject), true);
 
             includeInactive = EditorGUILayout.Toggle(
-                new GUIContent("非アクティブなオブジェクトも含める", "OFFにすると非アクティブな子オブジェクトは検索対象から除外します"),
+                new GUIContent(T("非アクティブなオブジェクトも含める", "Include inactive objects"), T("OFFにすると非アクティブな子オブジェクトは検索対象から除外します", "When OFF, inactive child objects are excluded from the search")),
                 includeInactive);
 
             EditorGUILayout.HelpBox(
-                "Animatorコンポーネントだけでなく、Modular Avatarの Merge Animator など" +
-                " NDMF系ツールが独自コンポーネント内に保持している Animator Controller の参照も" +
-                "配下の全コンポーネントを走査して検出します。",
+                T("Animatorコンポーネントだけでなく、Modular Avatarの Merge Animator など" +
+                  " NDMF系ツールが独自コンポーネント内に保持している Animator Controller の参照も" +
+                  "配下の全コンポーネントを走査して検出します。",
+                  "Detects not only the Animator component but also Animator Controller references held inside" +
+                  " components of NDMF-based tools such as Modular Avatar's Merge Animator," +
+                  " by scanning all components under the object."),
                 MessageType.Info);
         }
 
@@ -327,7 +376,7 @@ namespace nur_ieren
             logBuilder.Clear();
             var controllers = CollectTargetControllers();
 
-            logBuilder.AppendLine($"対象 Animator Controller: {controllers.Count} 件");
+            logBuilder.AppendLine(T($"対象 Animator Controller: {controllers.Count} 件", $"Target Animator Controllers: {controllers.Count}"));
 
             int totalStates = 0;
             int willChange = 0;
@@ -339,21 +388,21 @@ namespace nur_ieren
                 {
                     CountStates(layer.stateMachine, writeDefaultsValue, ref totalStates, ref willChange);
                 }
-                logBuilder.AppendLine($" - {AssetDatabase.GetAssetPath(c)} (変更対象 {willChange - before} 件)");
+                logBuilder.AppendLine(T($" - {AssetDatabase.GetAssetPath(c)} (変更対象 {willChange - before} 件)", $" - {AssetDatabase.GetAssetPath(c)} ({willChange - before} to change)"));
             }
 
             logBuilder.AppendLine("----------------------------");
-            logBuilder.AppendLine($"総ステート数: {totalStates} / うち変更が必要: {willChange}");
+            logBuilder.AppendLine(T($"総ステート数: {totalStates} / うち変更が必要: {willChange}", $"Total states: {totalStates} / needing change: {willChange}"));
 
             if (controllers.Count == 0)
             {
                 if (targetMode == TargetMode.File)
                 {
-                    logBuilder.AppendLine("ファイルが登録されていません。");
+                    logBuilder.AppendLine(T("ファイルが登録されていません。", "No files registered."));
                 }
                 else
                 {
-                    logBuilder.AppendLine("対象GameObject配下に Animator Controller への参照が見つかりませんでした。");
+                    logBuilder.AppendLine(T("対象GameObject配下に Animator Controller への参照が見つかりませんでした。", "No Animator Controller references were found under the target GameObject."));
                 }
             }
         }
@@ -381,7 +430,7 @@ namespace nur_ieren
             var controllers = CollectTargetControllers();
             if (controllers.Count == 0)
             {
-                logBuilder.AppendLine("対象の Animator Controller が見つかりませんでした。");
+                logBuilder.AppendLine(T("対象の Animator Controller が見つかりませんでした。", "No target Animator Controllers were found."));
                 return;
             }
 
@@ -398,7 +447,7 @@ namespace nur_ieren
                     controllerIndex++;
 
                     if (EditorUtility.DisplayCancelableProgressBar(
-                        "Write Defaults 一括処理中...",
+                        T("Write Defaults 一括処理中...", "Processing Write Defaults..."),
                         $"{controllerIndex} / {controllerTotal}: {controller.name}",
                         (float)controllerIndex / controllerTotal))
                     {
@@ -421,7 +470,7 @@ namespace nur_ieren
 
                     if (verboseLog)
                     {
-                        logBuilder.AppendLine($"OK ({changedInThisController}ステート変更): {AssetDatabase.GetAssetPath(controller)}");
+                        logBuilder.AppendLine(T($"OK ({changedInThisController}ステート変更): {AssetDatabase.GetAssetPath(controller)}", $"OK ({changedInThisController} state(s) changed): {AssetDatabase.GetAssetPath(controller)}"));
                     }
                 }
             }
@@ -436,12 +485,14 @@ namespace nur_ieren
             logBuilder.AppendLine("----------------------------");
             if (canceled)
             {
-                logBuilder.AppendLine($"キャンセルされました。途中まで {totalChanged} ステートを変更済みです。");
+                logBuilder.AppendLine(T($"キャンセルされました。途中まで {totalChanged} ステートを変更済みです。", $"Canceled. {totalChanged} state(s) were changed before cancellation."));
             }
             else
             {
-                logBuilder.AppendLine($"完了：{controllers.Count} 個の Controller、合計 {totalChanged} ステートの Write Defaults を " +
-                    $"{(writeDefaultsValue ? "ON" : "OFF")} に変更しました。");
+                string wdLabel = writeDefaultsValue ? "ON" : "OFF";
+                logBuilder.AppendLine(T(
+                    $"完了：{controllers.Count} 個の Controller、合計 {totalChanged} ステートの Write Defaults を {wdLabel} に変更しました。",
+                    $"Done: changed Write Defaults of {totalChanged} state(s) across {controllers.Count} controller(s) to {wdLabel}."));
             }
         }
 
