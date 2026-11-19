@@ -1,5 +1,7 @@
 # WDUnifier
 
+[日本語](README.ja.md)
+
 A Unity Editor tool for batch-switching Write Defaults settings across Animator Controllers.
 
 ## Concept
