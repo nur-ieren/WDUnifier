@@ -66,10 +66,6 @@ You can switch the interface language between Japanese and English using the too
 - Changes can be undone using Unity's Undo system, as long as the relevant Undo history remains available.
 - Back up your project before performing large batch operations.
 
-## Development
-
-This project was created to make Write Defaults configuration more efficient and consistent across Animator Controllers.
-
 ## Author
 
 - nur_ieren
